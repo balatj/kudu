@@ -5,6 +5,7 @@ using System.Net;
 using System.Net.Http;
 using System.Web.Http;
 using Kudu.Contracts.SiteExtensions;
+using Newtonsoft.Json.Linq;
 
 namespace Kudu.Services.SiteExtensions
 {
@@ -52,13 +53,20 @@ namespace Kudu.Services.SiteExtensions
         }
 
         [HttpPut]
-        public SiteExtensionInfo InstallExtension(string id, string version = null)
+        public SiteExtensionInfo InstallExtension(string id, SiteExtensionInstallInfo info)
         {
-            SiteExtensionInfo extension = _manager.InstallExtension(id, version);
+            if (info == null)
+            {
+                info = new SiteExtensionInstallInfo();
+            }
+
+            SiteExtensionInfo extension = _manager.InstallExtension(id, info.Version, info.Remote);
+
             if (extension == null)
             {
-                throw new HttpResponseException(Request.CreateErrorResponse(HttpStatusCode.NotFound, id));
+                throw new HttpResponseException(Request.CreateErrorResponse(HttpStatusCode.NotFound, "Could not find " + id));
             }
+
             return extension;
         }
 

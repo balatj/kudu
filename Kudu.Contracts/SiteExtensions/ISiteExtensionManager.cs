@@ -13,7 +13,7 @@ namespace Kudu.Contracts.SiteExtensions
 
         SiteExtensionInfo GetLocalExtension(string id, bool checkLatest);
 
-        SiteExtensionInfo InstallExtension(string id, string version = null);
+        SiteExtensionInfo InstallExtension(string id, string version = null, string remote = null);
 
         bool UninstallExtension(string id);
     }

@@ -176,4 +176,27 @@ namespace Kudu.Contracts.SiteExtensions
             set;
         }
     }
+
+    public class SiteExtensionInstallInfo
+    {
+        public SiteExtensionInstallInfo(string version = null, string remote = null)
+        {
+            Version = version;
+            Remote = remote;
+        }
+
+        [JsonProperty(PropertyName = "version")]
+        public string Version
+        {
+            get;
+            set;
+        }
+
+        [JsonProperty(PropertyName = "remote")]
+        public string Remote
+        {
+            get;
+            set;
+        }
+    }
 }
