@@ -127,6 +127,13 @@ namespace Kudu.Contracts.SiteExtensions
             set;
         }
 
+        [JsonProperty(PropertyName = "feed_url")]
+        public string FeedUrl
+        {
+            get;
+            set;
+        }
+
         [JsonProperty(PropertyName = "authors")]
         public IEnumerable<string> Authors
         {
@@ -171,29 +178,6 @@ namespace Kudu.Contracts.SiteExtensions
 
         [JsonProperty(PropertyName = "installed_date_time")]
         public DateTimeOffset? InstalledDateTime
-        {
-            get;
-            set;
-        }
-    }
-
-    public class SiteExtensionInstallInfo
-    {
-        public SiteExtensionInstallInfo(string version = null, string remote = null)
-        {
-            Version = version;
-            Remote = remote;
-        }
-
-        [JsonProperty(PropertyName = "version")]
-        public string Version
-        {
-            get;
-            set;
-        }
-
-        [JsonProperty(PropertyName = "remote")]
-        public string Remote
         {
             get;
             set;

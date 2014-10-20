@@ -19,19 +19,21 @@ namespace Kudu.Services.SiteExtensions
         }
 
         [HttpGet]
-        public IEnumerable<SiteExtensionInfo> GetRemoteExtensions(string filter = null, bool allowPrereleaseVersions = false)
+        public IEnumerable<SiteExtensionInfo> GetRemoteExtensions(string filter = null, bool allowPrereleaseVersions = false, string feedUrl = null)
         {
-            return _manager.GetRemoteExtensions(filter, allowPrereleaseVersions);
+            return _manager.GetRemoteExtensions(filter, allowPrereleaseVersions, feedUrl);
         }
 
         [HttpGet]
-        public SiteExtensionInfo GetRemoteExtension(string id, string version = null)
+        public SiteExtensionInfo GetRemoteExtension(string id, string version = null, string feedUrl = null)
         {
-            SiteExtensionInfo extension = _manager.GetRemoteExtension(id, version);
+            SiteExtensionInfo extension = _manager.GetRemoteExtension(id, version, feedUrl);
+
             if (extension == null)
             {
                 throw new HttpResponseException(Request.CreateErrorResponse(HttpStatusCode.NotFound, id));
             }
+
             return extension;
         }
 
@@ -53,14 +55,14 @@ namespace Kudu.Services.SiteExtensions
         }
 
         [HttpPut]
-        public SiteExtensionInfo InstallExtension(string id, SiteExtensionInstallInfo info)
+        public SiteExtensionInfo InstallExtension(string id, SiteExtensionInfo requestInfo)
         {
-            if (info == null)
+            if (requestInfo == null)
             {
-                info = new SiteExtensionInstallInfo();
+                requestInfo = new SiteExtensionInfo();
             }
 
-            SiteExtensionInfo extension = _manager.InstallExtension(id, info.Version, info.Remote);
+            SiteExtensionInfo extension = _manager.InstallExtension(id, requestInfo.Version, requestInfo.FeedUrl);
 
             if (extension == null)
             {

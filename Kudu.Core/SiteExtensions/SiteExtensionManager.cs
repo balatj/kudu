@@ -11,8 +11,10 @@ using Kudu.Contracts.SiteExtensions;
 using Kudu.Contracts.Tracing;
 using Kudu.Core.Deployment.Generator;
 using Kudu.Core.Infrastructure;
+using Kudu.Core.Settings;
 using Kudu.Core.Tracing;
 using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 using NuGet;
 using NullLogger = Kudu.Core.Deployment.NullLogger;
 
@@ -26,6 +28,7 @@ namespace Kudu.Core.SiteExtensions
         private readonly ITraceFactory _traceFactory;
 
         private const string _applicationHostFile = "applicationHost.xdt";
+        private readonly string _rootPath;
         private readonly string _baseUrl;
         private static readonly Dictionary<string, SiteExtensionInfo> _preInstalledExtensionDictionary
             = new Dictionary<string, SiteExtensionInfo>(StringComparer.OrdinalIgnoreCase)
@@ -85,30 +88,33 @@ namespace Kudu.Core.SiteExtensions
 
         public SiteExtensionManager(IEnvironment environment, IDeploymentSettingsManager settings, ITraceFactory traceFactory, HttpContextBase context)
         {
-            _localRepository = new LocalPackageRepository(environment.RootPath + "\\SiteExtensions");
+            _rootPath = Path.Combine(environment.RootPath, "SiteExtensions");
+            _baseUrl = context.Request.Url == null ? String.Empty : context.Request.Url.GetLeftPart(UriPartial.Authority).TrimEnd('/');
+            _localRepository = new LocalPackageRepository(_rootPath);
             _environment = environment;
             _settings = settings;
             _traceFactory = traceFactory;
-
-            _baseUrl = context.Request.Url == null ? String.Empty : context.Request.Url.GetLeftPart(UriPartial.Authority).TrimEnd('/');
         }
 
-        public IEnumerable<SiteExtensionInfo> GetRemoteExtensions(string filter, bool allowPrereleaseVersions = false)
+        public IEnumerable<SiteExtensionInfo> GetRemoteExtensions(string filter, bool allowPrereleaseVersions, string feedUrl)
         {
-            IEnumerable<SiteExtensionInfo> preInstalledExtensions = GetPreInstalledExtensions(filter, showEnabledOnly: false);
+            var extensions = new List<SiteExtensionInfo>(GetPreInstalledExtensions(filter, showEnabledOnly: false));
 
-            IPackageRepository remoteRepository = GetRemoteRepository();
+            IPackageRepository remoteRepository = GetRemoteRepository(feedUrl);
 
             IQueryable<IPackage> packages = String.IsNullOrEmpty(filter) ?
                 remoteRepository.GetPackages().Where(p => p.IsLatestVersion).OrderByDescending(p => p.DownloadCount) :
                 remoteRepository.Search(filter, allowPrereleaseVersions).Where(p => p.IsLatestVersion);
 
-            IEnumerable<SiteExtensionInfo> feedInfo = packages.Select(ConvertRemotePackageToSiteExtensionInfo);
+            foreach (IPackage package in packages)
+            {
+                extensions.Add(ConvertRemotePackageToSiteExtensionInfo(package, feedUrl));
+            }
 
-            return preInstalledExtensions.Concat(feedInfo);
+            return extensions;
         }
 
-        public SiteExtensionInfo GetRemoteExtension(string id, string version = null)
+        public SiteExtensionInfo GetRemoteExtension(string id, string version, string feedUrl)
         {
             SiteExtensionInfo info = GetPreInstalledExtension(id);
             if (info != null)
@@ -118,23 +124,23 @@ namespace Kudu.Core.SiteExtensions
 
             var semanticVersion = version == null ? null : new NuGet.SemanticVersion(version);
 
-            IPackage package = GetRemoteRepository().FindPackage(id, semanticVersion);
+            IPackage package = GetRemoteRepository(feedUrl).FindPackage(id, semanticVersion);
             if (package == null)
             {
                 return null;
             }
 
-            info = ConvertRemotePackageToSiteExtensionInfo(package);
+            info = ConvertRemotePackageToSiteExtensionInfo(package, feedUrl);
 
             return info;
         }
 
-        public IEnumerable<SiteExtensionInfo> GetLocalExtensions(string filter, bool checkLatest = true)
+        public IEnumerable<SiteExtensionInfo> GetLocalExtensions(string filter, bool checkLatest)
         {
             IEnumerable<SiteExtensionInfo> preInstalledExtensions = GetPreInstalledExtensions(filter, showEnabledOnly: true);
 
             IEnumerable<SiteExtensionInfo> feedInfo = _localRepository.Search(filter, false)
-                .Select(info => ConvertLocalPackageToSiteExtensionInfo(info, checkLatest, null));
+                .Select(info => ConvertLocalPackageToSiteExtensionInfo(info, checkLatest));
 
             return preInstalledExtensions.Concat(feedInfo);
         }
@@ -195,7 +201,7 @@ namespace Kudu.Core.SiteExtensions
             }
         }
 
-        public SiteExtensionInfo InstallExtension(string id, string version, string remote)
+        public SiteExtensionInfo InstallExtension(string id, string version, string feedUrl)
         {
             if (_preInstalledExtensionDictionary.ContainsKey(id))
             {
@@ -203,20 +209,19 @@ namespace Kudu.Core.SiteExtensions
             }
             else
             {
-                IPackageRepository remoteRepository = GetRemoteRepository(remote);
+                IPackageRepository remoteRepository = GetRemoteRepository(feedUrl);
                 IPackage localPackage = null;
                 IPackage repoPackage = version == null ? remoteRepository.FindPackage(id) :
                     remoteRepository.FindPackage(id, new NuGet.SemanticVersion(version), allowPrereleaseVersions: true, allowUnlisted: true);
 
                 if (repoPackage != null)
                 {
-                    // Directory where _localRepository.AddPackage would use.
                     string installationDirectory = GetInstallationDirectory(id);
-
                     localPackage = InstallExtension(repoPackage, installationDirectory);
+                    GetSettingManager(id).SetValue("feed_url", feedUrl);
                 }
 
-                return ConvertLocalPackageToSiteExtensionInfo(localPackage, checkLatest: true, remote: remote);
+                return ConvertLocalPackageToSiteExtensionInfo(localPackage, checkLatest: true);
             }
         }
 
@@ -358,16 +363,23 @@ namespace Kudu.Core.SiteExtensions
             return GetLocalExtension(id, checkLatest: false) == null;
         }
 
-        private IPackageRepository GetRemoteRepository(string remote = null)
+        private IPackageRepository GetRemoteRepository(string feedUrl)
         {
-            return remote == null ? 
+            return feedUrl == null ? 
                 new DataServicePackageRepository(new Uri(_settings.GetSiteExtensionRemoteUrl())) : 
-                new DataServicePackageRepository(new Uri(remote));
+                new DataServicePackageRepository(new Uri(feedUrl));
         }
 
         private string GetInstallationDirectory(string id)
         {
             return Path.Combine(_localRepository.Source, id);
+        }
+
+        private JsonSettings GetSettingManager(string id)
+        {
+            string filePath = Path.Combine(_rootPath, id, id + ".SiteExtensionSetting.json");
+
+            return new JsonSettings(filePath);
         }
 
         private string GetNuGetPackageFile(string id, string version)
@@ -412,6 +424,8 @@ namespace Kudu.Core.SiteExtensions
             {
                 info.ExtensionUrl = String.IsNullOrEmpty(info.LocalPath) ? null : GetFullUrl(info.ExtensionUrl);
             }
+
+            info.FeedUrl = GetSettingManager(info.Id).GetValue("feed_url");
         }
 
         private static string GetUrlFromApplicationHost(SiteExtensionInfo info)
@@ -432,9 +446,11 @@ namespace Kudu.Core.SiteExtensions
             }
         }
 
-        private SiteExtensionInfo ConvertRemotePackageToSiteExtensionInfo(IPackage package)
+        private SiteExtensionInfo ConvertRemotePackageToSiteExtensionInfo(IPackage package, string feedUrl)
         {
             var info = new SiteExtensionInfo(package);
+
+            info.FeedUrl = feedUrl;
 
             IPackage localPackage = _localRepository.FindPackage(info.Id);
             if (localPackage != null)
@@ -447,7 +463,7 @@ namespace Kudu.Core.SiteExtensions
             return info;
         }
 
-        private SiteExtensionInfo ConvertLocalPackageToSiteExtensionInfo(IPackage package, bool checkLatest = true, string remote = null)
+        private SiteExtensionInfo ConvertLocalPackageToSiteExtensionInfo(IPackage package, bool checkLatest)
         {
             if (package == null)
             {
@@ -461,7 +477,7 @@ namespace Kudu.Core.SiteExtensions
             if (checkLatest)
             {
                 // FindPackage gets back the latest version.
-                IPackage latestPackage = GetRemoteRepository(remote).FindPackage(info.Id);
+                IPackage latestPackage = GetRemoteRepository(info.FeedUrl).FindPackage(info.Id);
                 if (latestPackage != null)
                 {
                     info.LocalIsLatestVersion = package.Version == latestPackage.Version;
