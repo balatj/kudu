@@ -123,7 +123,7 @@
             type: "PUT",
             url: appRoot + "api/siteextensions/" + data.id,
             contentType: 'application/json',
-            data: '{feed_url:"' + data.feed_url + '"}',
+            data: JSON.stringify({feed_url: data.feed_url}),
             success: function (result) {
                 result = processExtensions(result);
                 context.$root.addInstalled(result);
@@ -164,7 +164,7 @@
             type: "PUT",
             url: appRoot + "api/siteextensions/" + data.id,
             contentType: 'application/json',
-            data: '{feed_url:"' + data.feed_url + '"}',
+            data: JSON.stringify({ feed_url: data.feed_url }),
             success: function (result) {
             },
             error: function (jqXhr, textStatus, errorThrown) {

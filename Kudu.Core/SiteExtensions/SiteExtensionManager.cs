@@ -209,6 +209,11 @@ namespace Kudu.Core.SiteExtensions
             }
             else
             {
+                if (String.IsNullOrEmpty(feedUrl))
+                {
+                    feedUrl = GetSettingManager(id).GetValue("feed_url");
+                }
+
                 IPackageRepository remoteRepository = GetRemoteRepository(feedUrl);
                 IPackage localPackage = null;
                 IPackage repoPackage = version == null ? remoteRepository.FindPackage(id) :
@@ -377,7 +382,7 @@ namespace Kudu.Core.SiteExtensions
 
         private JsonSettings GetSettingManager(string id)
         {
-            string filePath = Path.Combine(_rootPath, id, id + ".SiteExtensionSetting.json");
+            string filePath = Path.Combine(_rootPath, id, "SiteExtensionSetting.json");
 
             return new JsonSettings(filePath);
         }
