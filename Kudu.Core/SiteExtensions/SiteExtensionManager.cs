@@ -28,6 +28,9 @@ namespace Kudu.Core.SiteExtensions
         private readonly ITraceFactory _traceFactory;
 
         private const string _applicationHostFile = "applicationHost.xdt";
+        private const string _settingsFileName = "SiteExtensionSettings.json";
+        private const string _feedUrlSetting = "feed_url";
+
         private readonly string _rootPath;
         private readonly string _baseUrl;
         private static readonly Dictionary<string, SiteExtensionInfo> _preInstalledExtensionDictionary
@@ -211,7 +214,7 @@ namespace Kudu.Core.SiteExtensions
             {
                 if (String.IsNullOrEmpty(feedUrl))
                 {
-                    feedUrl = GetSettingManager(id).GetValue("feed_url");
+                    feedUrl = GetSettingManager(id).GetValue(_feedUrlSetting);
                 }
 
                 IPackageRepository remoteRepository = GetRemoteRepository(feedUrl);
@@ -223,7 +226,7 @@ namespace Kudu.Core.SiteExtensions
                 {
                     string installationDirectory = GetInstallationDirectory(id);
                     localPackage = InstallExtension(repoPackage, installationDirectory);
-                    GetSettingManager(id).SetValue("feed_url", feedUrl);
+                    GetSettingManager(id).SetValue(_feedUrlSetting, feedUrl);
                 }
 
                 return ConvertLocalPackageToSiteExtensionInfo(localPackage, checkLatest: true);
@@ -382,7 +385,7 @@ namespace Kudu.Core.SiteExtensions
 
         private JsonSettings GetSettingManager(string id)
         {
-            string filePath = Path.Combine(_rootPath, id, "SiteExtensionSetting.json");
+            string filePath = Path.Combine(_rootPath, id, _settingsFileName);
 
             return new JsonSettings(filePath);
         }
@@ -430,7 +433,7 @@ namespace Kudu.Core.SiteExtensions
                 info.ExtensionUrl = String.IsNullOrEmpty(info.LocalPath) ? null : GetFullUrl(info.ExtensionUrl);
             }
 
-            info.FeedUrl = GetSettingManager(info.Id).GetValue("feed_url");
+            info.FeedUrl = GetSettingManager(info.Id).GetValue(_feedUrlSetting);
         }
 
         private static string GetUrlFromApplicationHost(SiteExtensionInfo info)
