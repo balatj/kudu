@@ -481,6 +481,11 @@ namespace Kudu.Services.Web.App_Start
             routes.MapHttpRoute("api-get-local-extension", "api/siteextensions/{id}", new { controller = "SiteExtension", action = "GetLocalExtension" }, new { verb = new HttpMethodConstraint("GET") });
             routes.MapHttpRoute("api-uninstall-extension", "api/siteextensions/{id}", new { controller = "SiteExtension", action = "UninstallExtension" }, new { verb = new HttpMethodConstraint("DELETE") });
             routes.MapHttpRoute("api-install-update-extension", "api/siteextensions/{id}", new { controller = "SiteExtension", action = "InstallExtension" }, new { verb = new HttpMethodConstraint("PUT") });
+
+            // catch all unregistered url to properly handle not found
+            // this is to work arounf the issue in TraceModule where we see double OnBeginRequest call
+            // for the same request (404 and then 200 statusCode).
+            routes.MapHttpRoute("error-404", "{*path}", new { controller = "Error404", action = "Handle" });
         }
 
         // Perform migration tasks to deal with legacy sites that had different file layout
@@ -543,11 +548,8 @@ namespace Kudu.Services.Web.App_Start
             TraceLevel level = kernel.Get<IDeploymentSettingsManager>().GetTraceLevel();
             if (level > TraceLevel.Off && TraceServices.CurrentRequestTraceFile != null)
             {
-                string tracePath = Path.Combine(environment.TracePath, Constants.TraceFile);
                 string textPath = Path.Combine(environment.TracePath, TraceServices.CurrentRequestTraceFile);
-                string traceLockPath = Path.Combine(environment.TracePath, Constants.TraceLockFile);
-                var traceLock = new LockFile(traceLockPath);
-                return new CascadeTracer(new Tracer(tracePath, level, traceLock), new TextTracer(textPath, level));
+                return new CascadeTracer(new XmlTracer(environment.TracePath, level), new TextTracer(textPath, level));
             }
 
             return NullTracer.Instance;
@@ -558,10 +560,7 @@ namespace Kudu.Services.Web.App_Start
             TraceLevel level = settings.GetTraceLevel();
             if (level > TraceLevel.Off)
             {
-                string tracePath = Path.Combine(environment.TracePath, Constants.TraceFile);
-                string traceLockPath = Path.Combine(environment.TracePath, Constants.TraceLockFile);
-                var traceLock = new LockFile(traceLockPath);
-                return new Tracer(tracePath, level, traceLock);
+                return new XmlTracer(environment.TracePath, level);
             }
 
             return NullTracer.Instance;
@@ -582,7 +581,7 @@ namespace Kudu.Services.Web.App_Start
 
             attribs.Add("lastrequesttime", TraceModule.LastRequestTime.ToString());
 
-            tracer.Trace("Process Shutdown", attribs);
+            tracer.Trace(XmlTracer.ProcessShutdownTrace, attribs);
         }
 
         private static ILogger GetLogger(IEnvironment environment, IKernel kernel)

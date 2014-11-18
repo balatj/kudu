@@ -20,7 +20,6 @@ namespace Kudu.Core.Jobs
         private int _started = 0;
         private Thread _continuousJobThread;
         private ContinuousJobLogger _continuousJobLogger;
-        private JobSettings _jobSettings;
         private readonly string _disableFilePath;
 
         public ContinuousJobRunner(ContinuousJob continuousJob, IEnvironment environment, IDeploymentSettingsManager settings, ITraceFactory traceFactory, IAnalytics analytics)
@@ -138,7 +137,7 @@ namespace Kudu.Core.Jobs
 
         private bool TryGetLockIfSingleton()
         {
-            bool isSingleton = _jobSettings.IsSingleton;
+            bool isSingleton = JobSettings.IsSingleton;
             if (!isSingleton)
             {
                 return true;
@@ -154,7 +153,7 @@ namespace Kudu.Core.Jobs
             return false;
         }
 
-        public void StopJob()
+        public void StopJob(bool isShutdown = false)
         {
             Interlocked.Exchange(ref _started, 0);
 
@@ -164,12 +163,17 @@ namespace Kudu.Core.Jobs
             {
                 logStopped = true;
 
+                if (isShutdown)
+                {
+                    _continuousJobLogger.LogInformation("WebJob is stopping due to website shutting down");
+                }
+
                 _continuousJobLogger.ReportStatus(ContinuousJobStatus.Stopping);
 
                 NotifyShutdownJob();
 
                 // By default give the continuous job 5 seconds before killing it (after notifying the continuous job)
-                if (!_continuousJobThread.Join(_jobSettings.GetStoppingWaitTime(DefaultContinuousJobStoppingWaitTimeInSeconds)))
+                if (!_continuousJobThread.Join(JobSettings.GetStoppingWaitTime(DefaultContinuousJobStoppingWaitTimeInSeconds)))
                 {
                     _continuousJobThread.Abort();
                 }
@@ -188,7 +192,7 @@ namespace Kudu.Core.Jobs
         public void RefreshJob(ContinuousJob continuousJob, JobSettings jobSettings)
         {
             StopJob();
-            _jobSettings = jobSettings;
+            JobSettings = jobSettings;
             StartJob(continuousJob);
         }
 

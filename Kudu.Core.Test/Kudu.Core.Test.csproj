@@ -75,6 +75,7 @@
     <Compile Include="AuthUtilityFacts.cs" />
     <Compile Include="AsyncLockFileTests.cs" />
     <Compile Include="DebugConsoleFacts.cs" />
+    <Compile Include="Deployment\PythonSiteEnablerTests.cs" />
     <Compile Include="Deployment\NodeSiteEnablerTests.cs" />
     <Compile Include="Deployment\DeploymentManagerFacts.cs" />
     <Compile Include="FileSystemHubFacts.cs" />
@@ -105,7 +106,7 @@
     <Compile Include="Settings\DeploymentSettingsPrioritiesTests.cs" />
     <Compile Include="Settings\SettingsProvidersTests.cs" />
     <Compile Include="SSHKeyManagerFacts.cs" />
-    <Compile Include="Tracing\TracerTests.cs" />
+    <Compile Include="Tracing\XmlTracerTests.cs" />
     <Compile Include="Tracing\SiteExtensionLogManagerTests.cs" />
     <Compile Include="XmlLoggerFacts.cs" />
   </ItemGroup>

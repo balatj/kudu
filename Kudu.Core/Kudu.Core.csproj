@@ -55,6 +55,8 @@
     <Compile Include="Deployment\Generator\DotNetConsoleBuilder.cs" />
     <Compile Include="Deployment\Generator\CustomGeneratorCommandSiteBuilder.cs" />
     <Compile Include="Deployment\Generator\ExternalCommandFactory.cs" />
+    <Compile Include="Deployment\Generator\PythonSiteEnabler.cs" />
+    <Compile Include="Deployment\Generator\PythonSiteBuilder.cs" />
     <Compile Include="Deployment\Generator\ProjectKBuilder.cs" />
     <Compile Include="Deployment\ProgressLogger.cs" />
     <Compile Include="Deployment\Generator\BasicBuilder.cs" />
@@ -150,9 +152,9 @@
     <Compile Include="Tracing\NullTracerFactory.cs" />
     <Compile Include="Tracing\TextTracer.cs" />
     <Compile Include="Tracing\TraceExtensions.cs" />
-    <Compile Include="Tracing\Tracer.cs" />
     <Compile Include="Tracing\TracerFactory.cs" />
     <Compile Include="Tracing\TraceStep.cs" />
+    <Compile Include="Tracing\XmlTracer.cs" />
     <Compile Include="Resources.Designer.cs">
       <AutoGen>True</AutoGen>
       <DesignTime>True</DesignTime>
@@ -183,6 +185,9 @@
     <Compile Include="SourceControl\Hg\HgRepository.cs" />
   </ItemGroup>
   <ItemGroup>
+    <Content Include="Scripts\select_python_version.py">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
     <Content Include="Scripts\starter.cmd">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>

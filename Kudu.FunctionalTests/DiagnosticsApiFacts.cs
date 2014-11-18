@@ -62,6 +62,7 @@ namespace Kudu.FunctionalTests
                 // Test current process
                 var process = await appManager.ProcessManager.GetCurrentProcessAsync();
                 int currentId = process.Id;
+                var currentUser = process.UserName;
                 DateTime startTime = process.StartTime;
                 Assert.NotNull(process);
                 Assert.Contains("w3wp", process.Name);
@@ -82,6 +83,13 @@ namespace Kudu.FunctionalTests
                 var processes = await appManager.ProcessManager.GetProcessesAsync();
                 Assert.True(processes.Count() >= 1);
                 Assert.True(processes.Any(p => p.Id == currentId));
+                Assert.True(processes.All(p => p.UserName == currentUser));
+
+                // Test all-users process list
+                var allProcesses = await appManager.ProcessManager.GetProcessesAsync(allUsers: true);
+                Assert.True(allProcesses.Count() >= processes.Count());
+                Assert.True(allProcesses.Any(p => p.Id == currentId));
+                Assert.True(allProcesses.Any(p => p.UserName == currentUser));
 
                 // Test process dumps
                 foreach (var format in new[] { "raw", "zip", "diagsession" })
@@ -308,8 +316,9 @@ namespace Kudu.FunctionalTests
                 }
 
                 // Ensure trace
-                string trace = await appManager.VfsManager.ReadAllTextAsync("LogFiles/Git/trace/trace.xml");
-                Assert.Contains(path, trace, StringComparison.OrdinalIgnoreCase);
+                string trace = await appManager.VfsManager.ReadAllTextAsync("LogFiles/kudu/trace/");
+                Assert.Contains("_GET_dump_200.xml", trace, StringComparison.OrdinalIgnoreCase);
+                Assert.Contains("_GET_api-vfs-LogFiles-kudu-trace_pending.xml", trace, StringComparison.OrdinalIgnoreCase);
 
                 // Test runtime object by checking for one Node version
                 RuntimeInfo runtimeInfo = await appManager.RuntimeManager.GetRuntimeInfo();
@@ -386,6 +395,30 @@ several lines
                 Assert.True(response.StatusCode == HttpStatusCode.OK,
                     String.Format("For {0}, Expected Status Code: {1} Actual Status Code: {2}. \r\n Response: {3}", siteUrl, 200, response.StatusCode, responseBody));
             }
+        }
+
+        [Fact]
+        public async Task Error404UnknownRouteTests()
+        {
+            string appName = "Error404UnknownRouteTests";
+
+            await ApplicationManager.RunAsync(appName, async appManager =>
+            {
+                using (var client = HttpClientHelper.CreateClient(appManager.ServiceUrl, appManager.DeploymentManager.Credentials))
+                {
+                    var path = "/api/badroute";
+                    using (var response = await client.GetAsync(path))
+                    {
+                        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+
+                        var content = await response.Content.ReadAsStringAsync();
+
+                        // assert
+                        Assert.True(content.Contains("No route registered for"));
+                        Assert.True(content.Contains(path));
+                    }
+                }
+            });
         }
     }
 }

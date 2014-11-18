@@ -122,6 +122,8 @@
         $.ajax({
             type: "PUT",
             url: appRoot + "api/siteextensions/" + data.id,
+            contentType: 'application/json',
+            data: JSON.stringify({feed_url: data.feed_url}),
             success: function (result) {
                 result = processExtensions(result);
                 context.$root.addInstalled(result);
@@ -161,6 +163,8 @@
         $.ajax({
             type: "PUT",
             url: appRoot + "api/siteextensions/" + data.id,
+            contentType: 'application/json',
+            data: JSON.stringify({ feed_url: data.feed_url }),
             success: function (result) {
             },
             error: function (jqXhr, textStatus, errorThrown) {
@@ -177,7 +181,7 @@
         buttonResponse(this, function (completionCallback) {
             $.ajax({
                 type: "DELETE",
-                url: appRoot + "api/diagnostics/processes/0",
+                url: appRoot + "api/processes/0",
                 error: function () {
                     // no op
                 },
